@@ -7,20 +7,14 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { 
   Calendar, 
-  MapPin, 
   Clock, 
-  ChevronRight, 
   Star, 
-  CheckCircle2, 
-  AlertCircle,
-  ExternalLink,
-  Users,
   Trophy
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Activity, Participation } from '../../types';
 import { mockApi } from '../../services/mockApi';
-import { cn, formatDate, ACTIVITY_TYPE_COLORS, STATUS_COLORS } from '../../lib/utils';
+import { cn, formatDate, ACTIVITY_TYPE_COLORS } from '../../lib/utils';
 
 export default function StudentDashboard({ user }: { user: any }) {
   const [activities, setActivities] = React.useState<Activity[]>([]);
@@ -45,15 +39,17 @@ export default function StudentDashboard({ user }: { user: any }) {
     fetchData();
   }, [user.uid]);
 
-  const registeredActivities = participations;
-  const registeredIds = new Set(registeredActivities.map(p => p.activityId));
-  const upcomingEvents = activities.filter(a => a.status === 'upcoming' && !registeredIds.has(a.id));
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64 text-slate-400">Loading your profile...</div>;
+  }
   
   const stats = [
     { label: 'Registered', value: participations.length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Hours Earned', value: participations.filter(p => p.status === 'attended').length * 2, icon: Clock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: 'Points', value: (participations.length * 50) + (participations.filter(p => p.status === 'attended').length * 100), icon: Star, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
+
+  const registeredActivities = participations;
 
   const handleRegister = async (activity: Activity) => {
     try {

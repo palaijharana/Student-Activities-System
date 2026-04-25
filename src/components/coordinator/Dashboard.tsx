@@ -9,25 +9,19 @@ import {
   Users, 
   Calendar, 
   Plus, 
-  Download, 
-  MoreVertical, 
   Search,
-  Filter,
-  CheckCircle2,
-  Clock,
   TrendingUp,
-  FileSpreadsheet,
+  Download,
   X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { Activity as ActivityType } from '../../types';
 import { mockApi } from '../../services/mockApi';
-import { cn, formatDate, ACTIVITY_TYPE_COLORS, STATUS_COLORS } from '../../lib/utils';
+import { cn, ACTIVITY_TYPE_COLORS, formatDate } from '../../lib/utils';
 
 export default function CoordinatorDashboard({ user }: { user: any }) {
   const [activities, setActivities] = React.useState<ActivityType[]>([]);
-  const [searchTerm, setSearchTerm] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -41,11 +35,6 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
         setIsLoading(false);
       });
   }, []);
-
-  const filteredActivities = activities.filter(a => 
-    a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const [isAdding, setIsAdding] = React.useState(false);
   const [newActivity, setNewActivity] = React.useState({
@@ -83,21 +72,25 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
     }
   };
 
-  const exportToExcel = () => {
-    const data = filteredActivities.map(a => ({
-      Title: a.title,
-      Type: a.type,
-      Status: a.status,
-      Date: formatDate(a.date),
-      Location: a.location,
-      Participants: `${a.currentParticipants}/${a.maxParticipants || 'N/A'}`,
-      Coordinator: a.coordinatorName
-    }));
+  const exportParticipationsToExcel = async () => {
+    try {
+      const participations = await mockApi.getAllParticipations();
+      const data = participations.map(p => ({
+        'Student Name': p.studentName,
+        'Activity Title': p.activityTitle,
+        'Date': formatDate(p.activityDate),
+        'Type': p.activityType,
+        'Status': p.status
+      }));
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Activities');
-    XLSX.writeFile(workbook, 'Student_Activities_Report.xlsx');
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Participations');
+      XLSX.writeFile(workbook, 'Campus_Activity_Report.xlsx');
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export data');
+    }
   };
 
   const stats = [
@@ -115,6 +108,13 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
           <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Dashboard / System Wellness</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={exportParticipationsToExcel}
+            className="bg-white text-slate-700 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            <Download className="h-4 w-4" />
+            Export Data
+          </button>
           <button 
             onClick={() => setIsAdding(true)}
             className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-orange-600/20 hover:bg-orange-700 transition-all"

@@ -106,6 +106,10 @@ export const mockApi = {
     return participations.filter(p => p.studentId === studentId);
   },
 
+  getAllParticipations: async (): Promise<Participation[]> => {
+    return getStorage<Participation[]>(STORAGE_KEYS.PARTICIPATIONS, []);
+  },
+
   registerForActivity: async (participation: Partial<Participation>): Promise<Participation> => {
     const participations = getStorage<Participation[]>(STORAGE_KEYS.PARTICIPATIONS, []);
     
