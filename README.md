@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🎓 Student Activities Management System
 
-# Run and deploy your AI Studio app
+## 📖 Description
+The Student Activities Management System is a web-based application designed to simplify the management of student extracurricular activities. It helps coordinators efficiently track participation in events, clubs, sports, and competitions.
 
-This contains everything you need to run your app locally.
+The system allows users to add, update, and delete student records, view activity reports, and export data to Excel for record-keeping.
 
-View your app in AI Studio: https://ai.studio/apps/ea8c7f2d-8004-408e-91ea-96339d6b533e
+---
 
-## Run Locally
+## 🚀 Features
+- Add student details and activities  
+- Update and delete records  
+- View reports in a dynamic table  
+- Export data to Excel  
 
-**Prerequisites:**  Node.js
+---
 
+## 🛠️ Technologies Used
+- HTML, CSS, JavaScript  
+- Node.js  
+- MongoDB  
+- xlsx library  
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+
+## ▶️ How to Run
+1. Install dependencies  
