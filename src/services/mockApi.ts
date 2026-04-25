@@ -27,10 +27,21 @@ function setStorage<T>(key: string, value: T) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-// Initial data if storage is empty
-if (!localStorage.getItem(STORAGE_KEYS.ACTIVITIES)) {
-  setStorage(STORAGE_KEYS.ACTIVITIES, mockActivities);
+// Initial data if storage is empty or needs update
+const currentActivities = getStorage<Activity[]>(STORAGE_KEYS.ACTIVITIES, []);
+const activityIds = new Set(currentActivities.map(a => a.id));
+const newVersionActivities = [...currentActivities];
+
+mockActivities.forEach(ma => {
+  if (!activityIds.has(ma.id)) {
+    newVersionActivities.push(ma);
+  }
+});
+
+if (newVersionActivities.length !== currentActivities.length || !localStorage.getItem(STORAGE_KEYS.ACTIVITIES)) {
+  setStorage(STORAGE_KEYS.ACTIVITIES, newVersionActivities);
 }
+
 if (!localStorage.getItem(STORAGE_KEYS.PARTICIPATIONS)) {
   setStorage(STORAGE_KEYS.PARTICIPATIONS, mockParticipations);
 }

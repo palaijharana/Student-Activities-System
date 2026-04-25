@@ -50,9 +50,9 @@ export default function StudentDashboard({ user }: { user: any }) {
   const upcomingEvents = activities.filter(a => a.status === 'upcoming' && !registeredIds.has(a.id));
   
   const stats = [
-    { label: 'Registered', value: registeredActivities.length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Hours Earned', value: 12, icon: Clock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Points', value: 450, icon: Star, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Registered', value: participations.length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Hours Earned', value: participations.filter(p => p.status === 'attended').length * 2, icon: Clock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Points', value: (participations.length * 50) + (participations.filter(p => p.status === 'attended').length * 100), icon: Star, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   const handleRegister = async (activity: Activity) => {
@@ -118,7 +118,7 @@ export default function StudentDashboard({ user }: { user: any }) {
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
+              <Star className="h-5 w-5 text-amber-500" />
               Latest Registrations
             </h2>
             <Link to="/history" className="text-xs font-bold text-blue-600 hover:underline">
@@ -128,7 +128,7 @@ export default function StudentDashboard({ user }: { user: any }) {
 
           <div className="space-y-3">
             {registeredActivities.length > 0 ? (
-              registeredActivities.slice(0, 3).map((p, i) => (
+              registeredActivities.slice(0, 5).map((p, i) => (
                 <div key={p.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className={cn("p-2 rounded-lg border", ACTIVITY_TYPE_COLORS[p.activityType as any])}>
