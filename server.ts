@@ -1,132 +1,408 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
-import { connectDB, Activity, Participation, User } from "./src/lib/db.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import cors from "cors";
+import dotenv from "dotenv";
 
 dotenv.config();
 
+const app = express();
+const PORT = 3000;
+const JWT_SECRET = process.env.JWT_SECRET || "your-default-secret-key-change-it";
+const MONGODB_URI = process.env.MONGODB_URI;
+
+app.use(express.json());
+app.use(cors());
+
+// --- Database Schemas ---
+const userSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  displayName: { type: String, required: true },
+  role: { type: String, enum: ['student', 'coordinator', 'admin'], default: 'student' },
+  studentId: String,
+  coordinatorId: String,
+  department: String,
+  year: String,
+  createdAt: { type: Number, default: Date.now }
+});
+
+userSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: function (doc, ret: any) {
+    ret.uid = ret._id;
+    delete ret._id;
+  }
+});
+
+const activitySchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  type: { type: String, enum: ['event', 'club', 'sport', 'competition', 'other'], required: true },
+  status: { type: String, enum: ['upcoming', 'ongoing', 'completed', 'cancelled'], default: 'upcoming' },
+  date: { type: Number, required: true },
+  location: String,
+  coordinatorId: { type: String, required: true },
+  coordinatorName: { type: String, required: true },
+  maxParticipants: Number,
+  currentParticipants: { type: Number, default: 0 },
+  tags: [String],
+  createdAt: { type: Number, default: Date.now }
+});
+
+activitySchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: function (doc, ret: any) {
+    ret.id = ret._id;
+    delete ret._id;
+  }
+});
+
+const participationSchema = new mongoose.Schema({
+  studentId: { type: String, required: true },
+  studentName: { type: String, required: true },
+  studentEmail: { type: String, required: true },
+  activityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Activity', required: true },
+  activityTitle: { type: String, required: true },
+  activityDate: { type: Number, required: true },
+  activityType: { type: String, required: true },
+  status: { type: String, enum: ['registered', 'attended', 'absent', 'excused'], default: 'registered' },
+  feedback: String,
+  registeredAt: { type: Number, default: Date.now }
+});
+
+participationSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: function (doc, ret: any) {
+    ret.id = ret._id;
+    delete ret._id;
+  }
+});
+
+const User = mongoose.model("User", userSchema);
+const Activity = mongoose.model("Activity", activitySchema);
+const Participation = mongoose.model("Participation", participationSchema);
+
+// --- Middleware ---
+const authenticateToken = (req: any, res: any, next: any) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ message: "No token provided" });
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) return res.status(403).json({ message: "Invalid token" });
+    req.user = user;
+    next();
+  });
+};
+
+const isCoordinator = (req: any, res: any, next: any) => {
+  if (req.user.role !== 'coordinator' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: "Coordinator access required" });
+  }
+  next();
+};
+
+// --- API Routes ---
+
+// Auth
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { email, password, displayName, role, ...rest } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ email, password: hashedPassword, displayName, role, ...rest });
+    await user.save();
+    
+    // Transform to profile for token
+    const profile = { uid: user._id, email: user.email, role: user.role, displayName: user.displayName };
+    const token = jwt.sign(profile, JWT_SECRET);
+    res.status(201).json({ token, user: profile });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    // Allow login by email or studentId/coordinatorId
+    const user = await User.findOne({
+      $or: [
+        { email },
+        { studentId: email },
+        { coordinatorId: email }
+      ]
+    });
+    
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    
+    const profile = { uid: user._id, email: user.email, role: user.role, displayName: user.displayName };
+    const token = jwt.sign(profile, JWT_SECRET);
+    res.json({ token, user: profile });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Activities
+app.get("/api/activities", async (req: any, res: any) => {
+  try {
+    const activities = await Activity.find().sort({ date: 1 });
+    res.json(activities);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/activities", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    const activity = new Activity({
+      ...req.body,
+      coordinatorId: req.user.uid,
+      coordinatorName: req.user.displayName
+    });
+    await activity.save();
+    res.status(201).json(activity);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/activities/:id", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    await Activity.findByIdAndDelete(req.params.id);
+    await Participation.deleteMany({ activityId: req.params.id });
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.patch("/api/activities/:id", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    const activity = await Activity.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(activity);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Participations
+app.get("/api/participations", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    const participations = await Participation.find().sort({ registeredAt: -1 });
+    res.json(participations);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/participations/my", authenticateToken, async (req: any, res: any) => {
+  try {
+    const participations = await Participation.find({ studentId: req.user.uid }).sort({ registeredAt: -1 });
+    res.json(participations);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/participations/register", authenticateToken, async (req: any, res: any) => {
+  try {
+    const { activityId } = req.body;
+    const activity = await Activity.findById(activityId);
+    if (!activity) return res.status(404).json({ message: "Activity not found" });
+    
+    if (activity.maxParticipants && activity.currentParticipants >= activity.maxParticipants) {
+      return res.status(400).json({ message: "Activity is full" });
+    }
+
+    const existing = await Participation.findOne({ studentId: req.user.uid, activityId });
+    if (existing) return res.status(400).json({ message: "Already registered" });
+
+    const participation = new Participation({
+      studentId: req.user.uid,
+      studentName: req.user.displayName,
+      studentEmail: req.user.email,
+      activityId: activity._id,
+      activityTitle: activity.title,
+      activityDate: activity.date,
+      activityType: activity.type,
+      status: 'registered'
+    });
+
+    await participation.save();
+    
+    activity.currentParticipants += 1;
+    await activity.save();
+
+    res.status(201).json(participation);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/participations/:id/status", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    const { status } = req.body;
+    const p = await Participation.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    res.json(p);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/participations/:id", authenticateToken, async (req: any, res: any) => {
+  try {
+    const p = await Participation.findById(req.params.id);
+    if (!p) return res.status(404).send();
+    
+    // Only coordinator/admin or the student themselves can delete
+    if (req.user.role !== 'coordinator' && req.user.role !== 'admin' && p.studentId !== req.user.uid) {
+      return res.status(403).send();
+    }
+
+    await Participation.findByIdAndDelete(req.params.id);
+    
+    // Decrement participant count
+    await Activity.findByIdAndUpdate(p.activityId, { $inc: { currentParticipants: -1 } });
+    
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// --- Server Start ---
 async function startServer() {
-  const app = express();
-  const PORT = 3000;
-
-  // Connect to MongoDB
-  await connectDB();
-
-  app.use(express.json());
-
-  // Auth Routes
-  app.post("/api/auth/login", async (req, res) => {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ error: "Database not connected. Please set MONGODB_URI in settings." });
-    }
-    const { id, password, role } = req.body;
+  if (MONGODB_URI) {
     try {
-      const query = role === 'student' ? { studentId: id } : { coordinatorId: id };
-      const user = await User.findOne({ ...query, role });
+      await mongoose.connect(MONGODB_URI);
+      console.log("Connected to MongoDB");
       
-      if (!user || user.password !== password) {
-        return res.status(401).json({ error: "Invalid credentials" });
+      // Seed initial data if missing
+      const activitiesToSeed = [
+        {
+          title: "Campus Chess Open",
+          description: "Annual chess tournament for all levels. Experience high-level strategy and compete for the title of campus champion.",
+          type: "competition",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 7,
+          location: "Main Hall",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: 32,
+          tags: ["chess", "strategy"]
+        },
+        {
+          title: "Tech Startup Workshop",
+          description: "Learn how to build your own startup from scratch. Cover everything from ideation to pitching to investors.",
+          type: "event",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 14,
+          location: "Innovation Hub",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: 50,
+          tags: ["tech", "entrepreneurship"]
+        },
+        {
+          title: "Annual Sports Meet",
+          description: "A day of athletic excellence and team spirit. Join various track and field events.",
+          type: "sport",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 21,
+          location: "Main Stadium",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: 200,
+          tags: ["sports", "fitness"]
+        },
+        {
+          title: "Photography Club Meeting",
+          description: "Monthly gathering for photography enthusiasts. Share your work and learn new techniques.",
+          type: "club",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 3,
+          location: "Art Studio B",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: 20,
+          tags: ["art", "photography"]
+        },
+        {
+          title: "Coding Marathon",
+          description: "24-hour hackathon to solve real-world problems. Great for team building and skill development.",
+          type: "competition",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 30,
+          location: "Computer Lab 4",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: 100,
+          tags: ["coding", "hackathon"]
+        },
+        {
+          title: "Wellness & Yoga Workshop",
+          description: "Start your morning with a relaxing yoga session and mindfulness practices.",
+          type: "event",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 2,
+          location: "Fitness Center",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: 30,
+          tags: ["health", "wellness"]
+        },
+        {
+          title: "Robotics Club Expo",
+          description: "Come see our latest robots in action and learn how to get involved in competitive robotics.",
+          type: "club",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 5,
+          location: "Campus Plaza",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: null,
+          tags: ["tech", "robotics"]
+        },
+        {
+          title: "Sustainability Seminar",
+          description: "Expert talk on how to live more sustainably and reduce your carbon footprint on campus.",
+          type: "event",
+          status: "upcoming",
+          date: Date.now() + 86400000 * 10,
+          location: "Green Hall",
+          coordinatorId: "system",
+          coordinatorName: "Admin",
+          maxParticipants: 100,
+          tags: ["environment", "education"]
+        }
+      ];
+
+      for (const activity of activitiesToSeed) {
+        const exists = await Activity.findOne({ title: activity.title });
+        if (!exists) {
+          await Activity.create(activity);
+        }
       }
-      
-      res.json(user);
-    } catch (error) {
-      res.status(500).json({ error: "Login failed" });
+      console.log("Database seeded successfully");
+    } catch (err) {
+      console.error("MongoDB connection error:", err);
     }
-  });
+  } else {
+    console.warn("MONGODB_URI not found. API routes will fail without a database connection.");
+  }
 
-  app.post("/api/auth/register", async (req, res) => {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ error: "Database not connected. Please set MONGODB_URI in settings and restart." });
-    }
-    try {
-      const { email, password, displayName, role, id, department } = req.body;
-      
-      console.log('Attempting registration for:', { email, role, id });
-
-      // Basic validation
-      if (!id || !password || !email || !displayName) {
-        return res.status(400).json({ error: "Missing required fields: ID, Password, Email, and Name are all required." });
-      }
-
-      const existingUser = await User.findOne({ 
-        $or: [{ email }, { studentId: id }, { coordinatorId: id }] 
-      });
-
-      if (existingUser) {
-        const conflictField = existingUser.email === email ? 'email' : 'ID';
-        return res.status(400).json({ error: `A user with this ${conflictField} already exists.` });
-      }
-
-      const newUser = new User({
-        uid: Math.random().toString(36).substring(2, 10), // cleaner UID
-        email,
-        password,
-        displayName,
-        role,
-        studentId: role === 'student' ? id : undefined,
-        coordinatorId: role === 'coordinator' ? id : undefined,
-        department,
-        year: '2024',
-        createdAt: Date.now()
-      });
-
-      await newUser.save();
-      console.log('Registration successful:', newUser.uid);
-      res.status(201).json(newUser);
-    } catch (error: any) {
-      console.error('Registration server error:', error);
-      res.status(500).json({ error: "Server registration failed: " + (error.message || "Unknown error") });
-    }
-  });
-
-  // API Routes
-  app.get("/api/activities", async (req, res) => {
-    try {
-      const activities = await Activity.find().sort({ date: 1 });
-      res.json(activities);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch activities" });
-    }
-  });
-
-  app.post("/api/activities", async (req, res) => {
-    try {
-      const activity = new Activity(req.body);
-      await activity.save();
-      res.status(201).json(activity);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to create activity" });
-    }
-  });
-
-  app.get("/api/participations/:studentId", async (req, res) => {
-    try {
-      const participations = await Participation.find({ studentId: req.params.studentId });
-      res.json(participations);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch participations" });
-    }
-  });
-
-  app.post("/api/participations", async (req, res) => {
-    try {
-      const participation = new Participation(req.body);
-      await participation.save();
-      
-      // Increment participant count in Activity
-      await Activity.findByIdAndUpdate(req.body.activityId, { 
-        $inc: { currentParticipants: 1 } 
-      });
-      
-      res.status(201).json(participation);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to register participation" });
-    }
-  });
-
-  // Vite middleware for development
+  // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -142,7 +418,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running at http://localhost:${PORT}`);
   });
 }
 

@@ -7,7 +7,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Clock, Calendar, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 import { Participation } from '../../types';
-import { mockApi } from '../../services/mockApi';
+import { api } from '../../services/api';
 import { cn, formatDate } from '../../lib/utils';
 
 export default function HistoryPage({ user }: { user: any }) {
@@ -15,7 +15,7 @@ export default function HistoryPage({ user }: { user: any }) {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    mockApi.getParticipations(user.uid).then(data => {
+    api.getParticipations(user.uid).then(data => {
       setParticipations(data);
       setIsLoading(false);
     });

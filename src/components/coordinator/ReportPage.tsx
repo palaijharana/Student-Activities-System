@@ -17,7 +17,7 @@ import {
   Activity as ActivityIcon
 } from 'lucide-react';
 import { Participation, Activity } from '../../types';
-import { mockApi } from '../../services/mockApi';
+import { api } from '../../services/api';
 import { cn, formatDate, STATUS_COLORS } from '../../lib/utils';
 import * as XLSX from 'xlsx';
 
@@ -30,8 +30,8 @@ export default function ReportPage() {
 
   React.useEffect(() => {
     Promise.all([
-      mockApi.getAllParticipations(),
-      mockApi.getActivities()
+      api.getAllParticipations(),
+      api.getActivities()
     ]).then(([pData, aData]) => {
       setParticipations(pData);
       setActivities(aData);
@@ -48,7 +48,7 @@ export default function ReportPage() {
 
   const handleUpdateStatus = async (id: string, status: Participation['status']) => {
     try {
-      await mockApi.updateParticipationStatus(id, status);
+      await api.updateParticipationStatus(id, status);
       setParticipations(prev => prev.map(p => p.id === id ? { ...p, status } : p));
     } catch (e) {
       alert('Failed to update status');
@@ -58,7 +58,7 @@ export default function ReportPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this record?')) return;
     try {
-      await mockApi.deleteParticipation(id);
+      await api.deleteParticipation(id);
       setParticipations(prev => prev.filter(p => p.id !== id));
     } catch (e) {
       alert('Failed to delete record');

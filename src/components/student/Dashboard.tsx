@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Activity, Participation } from '../../types';
-import { mockApi } from '../../services/mockApi';
+import { api } from '../../services/api';
 import { cn, formatDate, ACTIVITY_TYPE_COLORS } from '../../lib/utils';
 
 export default function StudentDashboard({ user }: { user: any }) {
@@ -25,8 +25,8 @@ export default function StudentDashboard({ user }: { user: any }) {
     const fetchData = async () => {
       try {
         const [activitiesData, participationsData] = await Promise.all([
-          mockApi.getActivities(),
-          mockApi.getParticipations(user.uid)
+          api.getActivities(),
+          api.getParticipations(user.uid)
         ]);
         setActivities(activitiesData);
         setParticipations(participationsData);
@@ -53,7 +53,7 @@ export default function StudentDashboard({ user }: { user: any }) {
 
   const handleRegister = async (activity: Activity) => {
     try {
-      const newParticipation = await mockApi.registerForActivity({
+      const newParticipation = await api.registerForActivity({
         studentId: user.uid,
         studentName: user.displayName,
         studentEmail: user.email,
@@ -66,7 +66,7 @@ export default function StudentDashboard({ user }: { user: any }) {
 
       setParticipations(prev => [...prev, newParticipation]);
       // Refresh activities to update count
-      const updatedActivities = await mockApi.getActivities();
+      const updatedActivities = await api.getActivities();
       setActivities(updatedActivities);
     } catch (error) {
       alert('Registration failed');

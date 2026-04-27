@@ -19,7 +19,7 @@ import {
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { Activity as ActivityType } from '../../types';
-import { mockApi } from '../../services/mockApi';
+import { api } from '../../services/api';
 import { cn, ACTIVITY_TYPE_COLORS, formatDate } from '../../lib/utils';
 
 export default function CoordinatorDashboard({ user }: { user: any }) {
@@ -27,7 +27,7 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    mockApi.getActivities()
+    api.getActivities()
       .then(data => {
         setActivities(data);
         setIsLoading(false);
@@ -51,7 +51,7 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
   const handleAddActivity = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const added = await mockApi.addActivity({
+      const added = await api.addActivity({
         ...newActivity,
         coordinatorId: user.uid,
         coordinatorName: user.displayName,
@@ -77,7 +77,7 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
   const handleDeleteActivity = async (id: string) => {
     if (!confirm('Are you sure you want to delete this activity? This will also remove all student registrations.')) return;
     try {
-      await mockApi.deleteActivity(id);
+      await api.deleteActivity(id);
       setActivities(prev => prev.filter(a => a.id !== id));
     } catch (e) {
       alert('Failed to delete activity');
@@ -86,7 +86,7 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
 
   const exportParticipationsToExcel = async () => {
     try {
-      const participations = await mockApi.getAllParticipations();
+      const participations = await api.getAllParticipations();
       const data = participations.map(p => ({
         'Student Name': p.studentName,
         'Activity Title': p.activityTitle,

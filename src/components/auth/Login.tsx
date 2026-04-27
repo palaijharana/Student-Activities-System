@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Shield, Lock, User, Mail, Building, Key } from 'lucide-react';
 import { UserProfile } from '../../types';
-import { mockApi } from '../../services/mockApi';
+import { api } from '../../services/api';
 
 interface LoginProps {
   onLogin: (user: UserProfile) => void;
@@ -48,14 +48,14 @@ export default function Login({ onLogin }: LoginProps) {
     try {
       let user;
       if (isRegister) {
-        user = await mockApi.register({
+        user = await api.register({
           ...formData,
           role,
           studentId: role === 'student' ? formData.id : undefined,
           coordinatorId: role === 'coordinator' ? formData.id : undefined
         });
       } else {
-        user = await mockApi.login(formData.id, formData.password, role);
+        user = await api.login(formData.id, formData.password, role);
       }
       
       onLogin(user);

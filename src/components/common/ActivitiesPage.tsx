@@ -6,22 +6,34 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Search, Filter, Calendar, MapPin, Users, ChevronRight } from 'lucide-react';
-import { Activity } from '../../types';
-import { mockApi } from '../../services/mockApi';
+import { Activity, Participation } from '../../types';
+import { api } from '../../services/api';
 import { cn, ACTIVITY_TYPE_COLORS } from '../../lib/utils';
 
 export default function ActivitiesPage({ user }: { user: any }) {
   const [activities, setActivities] = React.useState<Activity[]>([]);
+  const [participations, setParticipations] = React.useState<Participation[]>([]);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterType, setFilterType] = React.useState('all');
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    mockApi.getActivities().then(data => {
-      setActivities(data);
-      setIsLoading(false);
-    });
-  }, []);
+    const fetchData = async () => {
+      try {
+        const [aData, pData] = await Promise.all([
+          api.getActivities(),
+          user.role === 'student' ? api.getParticipations(user.uid) : Promise.resolve([])
+        ]);
+        setActivities(aData);
+        setParticipations(pData);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [user.uid, user.role]);
 
   const filtered = activities.filter(a => {
     const matchesSearch = a.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -31,7 +43,7 @@ export default function ActivitiesPage({ user }: { user: any }) {
 
   const handleRegister = async (activity: Activity) => {
     try {
-      await mockApi.registerForActivity({
+      const newP = await api.registerForActivity({
         studentId: user.uid,
         studentName: user.displayName,
         studentEmail: user.email,
@@ -41,10 +53,15 @@ export default function ActivitiesPage({ user }: { user: any }) {
         activityType: activity.type,
         status: 'registered'
       });
+      setParticipations(prev => [...prev, newP]);
       alert('Registered successfully!');
-    } catch (e) {
-      alert('Already registered or failed.');
+    } catch (e: any) {
+      alert(e.message || 'Registration failed');
     }
+  };
+
+  const isRegistered = (activityId: string) => {
+    return participations.some(p => p.activityId === activityId);
   };
 
   const themeColor = user.role === 'student' ? 'blue' : 'orange';
@@ -117,7 +134,7 @@ export default function ActivitiesPage({ user }: { user: any }) {
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
                 <Users className="h-4 w-4" />
-                {activity.currentParticipants}/{activity.maxParticipants} Participants
+                {activity.maxParticipants ? `${activity.currentParticipants}/${activity.maxParticipants}` : activity.currentParticipants} Participants
               </div>
             </div>
             
@@ -129,9 +146,15 @@ export default function ActivitiesPage({ user }: { user: any }) {
               {user.role === 'student' ? (
                  <button 
                   onClick={() => handleRegister(activity)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all"
+                  disabled={isRegistered(activity.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-blue-600/20",
+                    isRegistered(activity.id)
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  )}
                 >
-                  Join
+                  {isRegistered(activity.id) ? 'Registered' : 'Join'}
                 </button>
               ) : (
                 <button className="p-2 text-slate-400 hover:text-orange-600 transition-colors">
