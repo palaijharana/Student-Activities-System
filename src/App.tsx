@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Shell from './components/layout/Shell';
 import StudentDashboard from './components/student/Dashboard';
 import CoordinatorDashboard from './components/coordinator/Dashboard';
+import ReportPage from './components/coordinator/ReportPage';
 import ActivitiesPage from './components/common/ActivitiesPage';
 import HistoryPage from './components/student/HistoryPage';
 import Login from './components/auth/Login';
@@ -36,6 +37,9 @@ export default function App() {
             user.role === 'student' ? <StudentDashboard user={user} /> : <CoordinatorDashboard user={user} />
           } />
           <Route path="/activities" element={<ActivitiesPage user={user} />} />
+          <Route path="/reports" element={
+            user.role === 'coordinator' ? <ReportPage /> : <Navigate to="/" />
+          } />
           <Route path="/history" element={
             user.role === 'student' ? <HistoryPage user={user} /> : <Navigate to="/" />
           } />
