@@ -132,5 +132,55 @@ export const mockApi = {
     setStorage(STORAGE_KEYS.ACTIVITIES, updatedActivities);
 
     return newParticipation;
+  },
+
+  updateActivity: async (id: string, updates: Partial<Activity>): Promise<Activity> => {
+    const activities = getStorage<Activity[]>(STORAGE_KEYS.ACTIVITIES, []);
+    const index = activities.findIndex(a => a.id === id);
+    if (index === -1) throw new Error('Activity not found');
+    
+    const updated = { ...activities[index], ...updates };
+    activities[index] = updated;
+    setStorage(STORAGE_KEYS.ACTIVITIES, activities);
+    return updated;
+  },
+
+  deleteActivity: async (id: string): Promise<void> => {
+    const activities = getStorage<Activity[]>(STORAGE_KEYS.ACTIVITIES, []);
+    const filtered = activities.filter(a => a.id !== id);
+    setStorage(STORAGE_KEYS.ACTIVITIES, filtered);
+    
+    // Also cleanup participations
+    const participations = getStorage<Participation[]>(STORAGE_KEYS.PARTICIPATIONS, []);
+    const filteredP = participations.filter(p => p.activityId !== id);
+    setStorage(STORAGE_KEYS.PARTICIPATIONS, filteredP);
+  },
+
+  updateParticipationStatus: async (id: string, status: Participation['status']): Promise<Participation> => {
+    const participations = getStorage<Participation[]>(STORAGE_KEYS.PARTICIPATIONS, []);
+    const index = participations.findIndex(p => p.id === id);
+    if (index === -1) throw new Error('Participation not found');
+    
+    participations[index].status = status;
+    setStorage(STORAGE_KEYS.PARTICIPATIONS, participations);
+    return participations[index];
+  },
+
+  deleteParticipation: async (id: string): Promise<void> => {
+    const participations = getStorage<Participation[]>(STORAGE_KEYS.PARTICIPATIONS, []);
+    const participation = participations.find(p => p.id === id);
+    if (!participation) return;
+
+    const filtered = participations.filter(p => p.id !== id);
+    setStorage(STORAGE_KEYS.PARTICIPATIONS, filtered);
+    
+    // Decrement activity count
+    const activities = getStorage<Activity[]>(STORAGE_KEYS.ACTIVITIES, []);
+    const updatedActivities = activities.map(a => 
+      a.id === participation.activityId 
+        ? { ...a, currentParticipants: Math.max(0, (a.currentParticipants || 0) - 1) } 
+        : a
+    );
+    setStorage(STORAGE_KEYS.ACTIVITIES, updatedActivities);
   }
 };
