@@ -12,7 +12,9 @@ import {
   Search,
   TrendingUp,
   Download,
-  X
+  X,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -69,6 +71,16 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
       });
     } catch (error) {
       alert('Failed to add activity');
+    }
+  };
+
+  const handleDeleteActivity = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this activity? This will also remove all student registrations.')) return;
+    try {
+      await mockApi.deleteActivity(id);
+      setActivities(prev => prev.filter(a => a.id !== id));
+    } catch (e) {
+      alert('Failed to delete activity');
     }
   };
 
@@ -235,14 +247,25 @@ export default function CoordinatorDashboard({ user }: { user: any }) {
            </div>
            <div className="space-y-3">
               {activities.slice(0, 5).map(a => (
-                <div key={a.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div key={a.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
                   <div className="flex items-center gap-3">
                     <div className={cn("p-2 rounded-lg border", ACTIVITY_TYPE_COLORS[a.type])}>
                       <Calendar className="h-4 w-4" />
                     </div>
-                    <p className="text-sm font-bold text-slate-800">{a.title}</p>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{a.title}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">{a.currentParticipants} Joined</p>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">{a.currentParticipants} Joined</span>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => handleDeleteActivity(a.id)}
+                      className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100"
+                      title="Delete Activity"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
            </div>
