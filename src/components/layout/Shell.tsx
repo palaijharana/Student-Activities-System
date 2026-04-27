@@ -40,7 +40,7 @@ export default function Shell({ children, userRole, onLogout, user }: ShellProps
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Activities', href: '/activities', icon: Calendar },
     ...(userRole === 'coordinator' 
-      ? [{ name: 'Students', href: '/students', icon: Users }] 
+      ? [{ name: 'Reports', href: '/reports', icon: Users }] 
       : [{ name: 'My History', href: '/history', icon: Trophy }]
     ),
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -83,7 +83,20 @@ export default function Shell({ children, userRole, onLogout, user }: ShellProps
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="px-6 py-6 border-t border-slate-800 space-y-4">
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Alignment</p>
+            <div className="flex flex-wrap gap-2">
+              <div className="bg-emerald-500/10 text-emerald-500 text-[9px] font-bold px-2 py-1 rounded border border-emerald-500/20 flex items-center gap-1.6">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                SDG 3: Health
+              </div>
+              <div className="bg-amber-500/10 text-amber-500 text-[9px] font-bold px-2 py-1 rounded border border-amber-500/20 flex items-center gap-1.6">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                SDG 4: Quality Edu
+              </div>
+            </div>
+          </div>
           <button 
             onClick={onLogout}
             className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-slate-400 rounded-lg hover:bg-white/5 hover:text-slate-100 transition-colors"
