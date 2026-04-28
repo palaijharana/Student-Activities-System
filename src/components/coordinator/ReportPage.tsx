@@ -89,7 +89,7 @@ export default function ReportPage() {
             <Users className="h-8 w-8 text-orange-600" />
             Participation Reports
           </h1>
-          <p className="text-slate-500 mt-1">Manage student activities and generate official records.</p>
+          <p className="text-slate-500 mt-1">Showing participation records for your assigned mentees.</p>
         </div>
         <button 
           onClick={exportToExcel}

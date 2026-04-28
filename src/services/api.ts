@@ -124,5 +124,45 @@ export const api = {
       const error = await response.json();
       throw new Error(error.message || 'Failed to delete');
     }
+  },
+
+  searchStudents: async (query: string): Promise<UserProfile[]> => {
+    return handleResponse(await fetch(`${API_URL}/mentorship/students?query=${encodeURIComponent(query)}`, {
+      headers: getAuthHeader()
+    }));
+  },
+
+  getMentees: async (): Promise<UserProfile[]> => {
+    return handleResponse(await fetch(`${API_URL}/mentorship/mentees`, {
+      headers: getAuthHeader()
+    }));
+  },
+
+  addMentee: async (studentId: string): Promise<void> => {
+    await handleResponse(await fetch(`${API_URL}/mentorship/mentees`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
+      body: JSON.stringify({ studentId })
+    }));
+  },
+
+  removeMentee: async (studentId: string): Promise<void> => {
+    const response = await fetch(`${API_URL}/mentorship/mentees/${studentId}`, {
+      method: 'DELETE',
+      headers: getAuthHeader()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to remove mentee');
+    }
+  },
+
+  getMenteeActivities: async (studentId: string): Promise<Participation[]> => {
+    return handleResponse(await fetch(`${API_URL}/mentorship/mentees/${studentId}/activities`, {
+      headers: getAuthHeader()
+    }));
   }
 };

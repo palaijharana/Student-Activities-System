@@ -14,6 +14,7 @@ export interface UserProfile {
   coordinatorId?: string; // e.g. COORD456
   department?: string;
   year?: string;
+  mentees?: string[]; // Array of student uids
   password?: string;
   createdAt: number;
 }

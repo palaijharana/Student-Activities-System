@@ -11,6 +11,7 @@ import CoordinatorDashboard from './components/coordinator/Dashboard';
 import ReportPage from './components/coordinator/ReportPage';
 import ActivitiesPage from './components/common/ActivitiesPage';
 import HistoryPage from './components/student/HistoryPage';
+import MentorshipPage from './components/coordinator/MentorshipPage';
 import Login from './components/auth/Login';
 import { UserProfile } from './types';
 
@@ -39,6 +40,9 @@ export default function App() {
           <Route path="/activities" element={<ActivitiesPage user={user} />} />
           <Route path="/reports" element={
             user.role === 'coordinator' ? <ReportPage /> : <Navigate to="/" />
+          } />
+          <Route path="/mentorship" element={
+            user.role === 'coordinator' ? <MentorshipPage /> : <Navigate to="/" />
           } />
           <Route path="/history" element={
             user.role === 'student' ? <HistoryPage user={user} /> : <Navigate to="/" />

@@ -16,7 +16,8 @@ import {
   Search,
   Menu,
   X,
-  Plus
+  Plus,
+  GraduationCap
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -40,7 +41,10 @@ export default function Shell({ children, userRole, onLogout, user }: ShellProps
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Activities', href: '/activities', icon: Calendar },
     ...(userRole === 'coordinator' 
-      ? [{ name: 'Reports', href: '/reports', icon: Users }] 
+      ? [
+          { name: 'Reports', href: '/reports', icon: Users },
+          { name: 'Mentorship', href: '/mentorship', icon: GraduationCap }
+        ] 
       : [{ name: 'My History', href: '/history', icon: Trophy }]
     ),
     { name: 'Settings', href: '/settings', icon: Settings },

@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   coordinatorId: String,
   department: String,
   year: String,
+  mentees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   createdAt: { type: Number, default: Date.now }
 });
 
@@ -36,6 +37,7 @@ userSchema.set('toJSON', {
   transform: function (doc, ret: any) {
     ret.uid = ret._id;
     delete ret._id;
+    delete ret.password; // Security: don't send password in JSON
   }
 });
 
@@ -199,7 +201,17 @@ app.patch("/api/activities/:id", authenticateToken, isCoordinator, async (req: a
 // Participations
 app.get("/api/participations", authenticateToken, isCoordinator, async (req: any, res: any) => {
   try {
-    const participations = await Participation.find().sort({ registeredAt: -1 });
+    let query = {};
+    if (req.user.role === 'coordinator') {
+      const coordinator = await User.findById(req.user.uid);
+      if (coordinator && coordinator.mentees && coordinator.mentees.length > 0) {
+        const menteeIds = coordinator.mentees.map(id => id.toString());
+        query = { studentId: { $in: menteeIds } };
+      } else {
+        return res.json([]);
+      }
+    }
+    const participations = await Participation.find(query).sort({ registeredAt: -1 });
     res.json(participations);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
@@ -276,6 +288,84 @@ app.delete("/api/participations/:id", authenticateToken, async (req: any, res: a
     await Activity.findByIdAndUpdate(p.activityId, { $inc: { currentParticipants: -1 } });
     
     res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// --- Mentorship Routes ---
+
+// Search students to add as mentees
+app.get("/api/mentorship/students", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    const { query } = req.query;
+    const students = await User.find({
+      role: 'student',
+      $or: [
+        { displayName: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+        { studentId: { $regex: query, $options: 'i' } }
+      ]
+    }).limit(10);
+    res.json(students);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get current coordinator's mentees
+app.get("/api/mentorship/mentees", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    const coordinator = await User.findById(req.user.uid).populate('mentees');
+    if (!coordinator) return res.status(404).json({ message: "Coordinator not found" });
+    res.json(coordinator.mentees || []);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Add mentee
+app.post("/api/mentorship/mentees", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    const { studentId } = req.body;
+    const student = await User.findById(studentId);
+    if (!student || student.role !== 'student') {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    await User.findByIdAndUpdate(req.user.uid, {
+      $addToSet: { mentees: student._id }
+    });
+
+    res.json({ message: "Mentee added successfully" });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Remove mentee
+app.delete("/api/mentorship/mentees/:id", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    await User.findByIdAndUpdate(req.user.uid, {
+      $pull: { mentees: req.params.id }
+    });
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get mentee activities
+app.get("/api/mentorship/mentees/:id/activities", authenticateToken, isCoordinator, async (req: any, res: any) => {
+  try {
+    // Verify this is a mentee of the requester
+    const coordinator = await User.findById(req.user.uid);
+    if (!coordinator?.mentees?.includes(req.params.id as any)) {
+      return res.status(403).json({ message: "Access denied. Student is not your mentee." });
+    }
+
+    const participations = await Participation.find({ studentId: req.params.id }).sort({ registeredAt: -1 });
+    res.json(participations);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -394,6 +484,62 @@ async function startServer() {
           await Activity.create(activity);
         }
       }
+
+      // Seed initial students if missing
+      const studentsToSeed = [
+        {
+          email: "student1@example.com",
+          password: "password123",
+          displayName: "Alice Smith",
+          role: "student",
+          studentId: "STU001",
+          department: "Computer Science",
+          year: "3rd"
+        },
+        {
+          email: "student2@example.com",
+          password: "password123",
+          displayName: "Bob Johnson",
+          role: "student",
+          studentId: "STU002",
+          department: "Mechanical Engineering",
+          year: "2nd"
+        },
+        {
+          email: "student3@example.com",
+          password: "password123",
+          displayName: "Charlie Davis",
+          role: "student",
+          studentId: "STU003",
+          department: "Business Administration",
+          year: "1st"
+        }
+      ];
+
+      for (const studentData of studentsToSeed) {
+        const exists = await User.findOne({ email: studentData.email });
+        if (!exists) {
+          const hashedPassword = await bcrypt.hash(studentData.password, 10);
+          const student = await User.create({ ...studentData, password: hashedPassword });
+          console.log(`Created student: ${student.displayName}`);
+
+          // Add some dummy participations for these students
+          const activities = await Activity.find().limit(3);
+          for (const activity of activities) {
+            await Participation.create({
+              studentId: student._id.toString(),
+              studentName: student.displayName,
+              studentEmail: student.email,
+              activityId: activity._id,
+              activityTitle: activity.title,
+              activityDate: activity.date,
+              activityType: activity.type,
+              status: Math.random() > 0.5 ? 'attended' : 'registered'
+            });
+          }
+        }
+      }
+
       console.log("Database seeded successfully");
     } catch (err) {
       console.error("MongoDB connection error:", err);

@@ -32,7 +32,14 @@ export default function HistoryPage({ user }: { user: any }) {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Activity History</h1>
-          <p className="text-slate-500 mt-1">Review your past participations and upcoming registrations.</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-slate-500">Review your past participations.</p>
+            {user.studentId && (
+              <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-bold uppercase tracking-wider">
+                ID: {user.studentId}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-6">
           {stats.map(s => (
